@@ -1,28 +1,53 @@
 # Tredly
-Version 0.10.0
-May 5 2016
 
-This is a software package to simplify the usage and management of containers within Unix. You can find out more information about Tredly at **[http://tredly.com](http://tredly.com)**
+- Version: 0.10.0
+- Date: May 5 2016
+- [Release notes](https://github.com/tredly/tredly-buid/blob/master/CHANGELOG.md)
+- [GitHub repository](https://github.com/tredly/tredly-build)
+
+## Overview
+
+This is a software package to simplify the usage and management of containers within FreeBSD. You can find out more information about Tredly at **<http://tredly.com>**
+
+## Requirements
+
+To install Tredly, your server must be running **FreeBSD 10.3 (or above) as Root-on-ZFS**. Further details can be found at the [Tredly Docs site](http://www.tredly.com/docs/?p=31).
+
+You must also have [Tredly Host 0.10.0](https://github.com/vuid-com/tredly-host) installed.
 
 ## Installation
 
-Requires Tredly 0.9.0 **[https://github.com/vuid-com/tredly-host](https://github.com/vuid-com/tredly-host)**
+Tredly-Build is installed automatically when you install [Tredly Host](https://github.com/vuid-com/tredly-host). If you want to install it manually, or to update your install, follow the steps below:
 
-Checkout this repo and run `./tredly.sh install clean` to install. Note that the "clean" option will uninstall tredly before reinstalling.
+### Via Git
+
+1. Clone the Tredly-Build repository to the desired location (we suggest `/usr/local/etc`):
+
+```
+    git clone git://github.com/tredly/tredly-build.git /usr/local/etc
+    cd /usr/local/etc/tredly-build
+```
+
+1. Run `./tredly.sh install clean` to complete install. Note that the "clean" option will uninstall any existing installations of Tredly Build first.
 
 ## Usage
 
-Tredly requires a Tredlyfile as the "recipe" for a container. This file contains all of the information Tredly needs to build and start your container.
+Tredly requires a [Tredlyfile](https://github.com/tredly/tredly-host/wiki/Tredlyfile) as the "recipe" for a container. This file contains all of the information Tredly needs to build and start your container.
 
 To see the help, use `tredly --help`
 
 ## Uninstalling
 
-Run `./tredly.sh uninstall` from the checkout directory to uninstall tredly.
-
-
-## Documentation
+To remove Tredly-Build run the following command from your `tredly-build` folder (most likely `/usr/local/etc`): `./tredly.sh uninstall`
 
 ### ZFS Datasets
 
 A list of ZFS datasets used by Tredly is available in `doc/zfs.md`
+
+## Contributing
+
+We encourage you to contribute to Tredly. Please check out the [Contributing documentation](https://github.com/tredly/tredly-build/blob/master/CONTRIBUTING.md) for guidelines about how to get involved.
+
+## License
+
+Tredly is released under the [MIT License](http://www.opensource.org/licenses/MIT).
