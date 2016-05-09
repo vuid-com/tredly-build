@@ -593,9 +593,10 @@ function container_create() {
 
     # make sure any sslcerts for layer 7 proxy actually exist
     local _cert _certList _src
+    local _i=1
 
     # Check that certs actually exist
-    for _cert in ${_CONF_TREDLYFILE_URLCERT[@]} ${_CONF_TREDLYFILE_URLREDIRECTCERT[@]}; do
+    for _cert in ${_CONF_TREDLYFILE_URLCERT[@]}; do
         if [[ -n "${_cert}" ]]; then
 
             # trim whitespace
@@ -612,15 +613,46 @@ function container_create() {
 
             # make sure directory exists
             if [[ ! -d "${_src}" ]]; then
-                exit_with_error "Could not find SSL Certificate ${_cert}"
+                exit_with_error "Could not find SSL Certificate ${_src} in url${_i}Cert="
             fi
             # make sure server.crt exists
             if [[ ! -f "${_src}/server.crt" ]]; then
-                exit_with_error "Could not find SSL Certificate ${_cert}/server.crt"
+                exit_with_error "Could not find SSL Certificate ${_src}/server.crt in url${_i}Cert="
             fi
             # make sure server.key exists
             if [[ ! -f "${_src}/server.key" ]]; then
-                exit_with_error "Could not find SSL Key ${_cert}/server.key"
+                exit_with_error "Could not find SSL Key ${_src}/server.key in url${_i}Cert="
+            fi
+        fi
+        _i=$(( _i + 1))
+    done
+    
+    for _cert in ${_CONF_TREDLYFILE_URLREDIRECTCERT[@]}; do
+        if [[ -n "${_cert}" ]]; then
+
+            # trim whitespace
+            _cert=$(trim "${_cert}")
+
+            # if first word of the source is "partition" then the file comes from the partition
+            if [[ "${_cert}" =~ ^partition/ ]]; then
+                local _certPath="$(rcut "${_cert}" "/" )"
+                _src="${TREDLY_PARTITIONS_MOUNT}/${_partitionName}/${TREDLY_PTN_DATA_DIR_NAME}/${_certPath}/"
+            else
+                # comes from container
+                _src="$(rtrim ${_CONTAINER_CWD} /)/${_cert}"
+            fi
+
+            # make sure directory exists
+            if [[ ! -d "${_src}" ]]; then
+                exit_with_error "Could not find SSL Certificate ${_src} in urlRedirectCert="
+            fi
+            # make sure server.crt exists
+            if [[ ! -f "${_src}/server.crt" ]]; then
+                exit_with_error "Could not find SSL Certificate ${_src}/server.crt in urlRedirectCert="
+            fi
+            # make sure server.key exists
+            if [[ ! -f "${_src}/server.key" ]]; then
+                exit_with_error "Could not find SSL Key ${_src}/server.key in urlRedirectCert="
             fi
         fi
     done
