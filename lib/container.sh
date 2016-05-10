@@ -1628,7 +1628,7 @@ function destroy_container() {
                         # flag nginx to be reloaded
                         _reloadNginx="true"
                         # if this file no longer contains location defs then delete it
-                        if [[ $( cat "${_nginxServerNameDir}/${_file}" | grep 'location ' | wc -l ) -eq 0 ]]; then
+                        if [[ $( cat "${_nginxServerNameDir}/${_file}" | grep 'location ' | grep -v 'location /tredly_error_docs ' | wc -l ) -eq 0 ]]; then
                             # no location defs, go ahead and delete the file
                             e_verbose "No location defs found, deleting ${serverNameFullpath}..."
                             rm -f "${_nginxServerNameDir}/${_file}"
@@ -1694,7 +1694,7 @@ function destroy_container() {
         _reloadNginx="true"
 
         # if this file no longer contains location defs then delete it
-        if [[ $( cat "${_nginxServerNameDir}/${_file}" | grep 'location ' | wc -l ) -eq 0 ]]; then
+        if [[ $( cat "${_nginxServerNameDir}/${_file}" | grep 'location ' | grep -v 'location /tredly_error_docs ' | wc -l ) -eq 0 ]]; then
             # no location defs, go ahead and delete the file
             e_verbose "No location defs found, deleting ${serverNameFullpath}..."
             rm -f "${_nginxServerNameDir}/${_file}"
