@@ -11,7 +11,7 @@
 2 - Contains all epairs assigned to public containers
 5 - Contains all public ip4 addresses that this host responds on
 6 - Contains all public interfaces that this host responds on
-7 - Contains the host's private container subnet ip address
+7 - Contains the host's private ip address
 10 - Contains private container subnet
 11 - Contains private container interface
 20 - Contains all IP4 addresses whitelisted for Tredly-API Access
