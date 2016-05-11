@@ -487,18 +487,18 @@ function ip4_set_host_network() {
     fi
 
     # check if a line for this interface exists within rc.conf
-    local _numLines=$( cat "${RC_CONF}" | grep "^ifconfig_${_interface}=" | wc -l )
+    local _numLines=$( cat "/etc/rc.conf" | grep "^ifconfig_${_interface}=" | wc -l )
 
     local _lineToAdd="ifconfig_${_interface}=\"inet ${_ip4} netmask ${_ip4Subnet}\""
 
     e_note "Updating rc.conf"
     if [[ ${_numLines} -gt 0 ]]; then
         # line exists, change the network information in rc.conf
-        sed -i '' "s|ifconfig_${_interface}=.*|${_lineToAdd}|g" "${RC_CONF}"
+        sed -i '' "s|ifconfig_${_interface}=.*|${_lineToAdd}|g" "/etc/rc.conf"
         _exitCode=$?
     else
         # does not exist, echo it in
-        echo "${_lineToAdd}" >> "${RC_CONF}"
+        echo "${_lineToAdd}" >> "/etc/rc.conf"
         _exitCode=$?
     fi
     if [[ ${_exitCode} -eq 0 ]]; then
@@ -509,7 +509,7 @@ function ip4_set_host_network() {
 
     e_note "Updating SSHD"
     # change the listen address for ssh
-    sed -i '' "s|ListenAddress .*|ListenAddress ${_ip4}|g" "${SSHD_CONFIG}"
+    sed -i '' "s|ListenAddress .*|ListenAddress ${_ip4}|g" "/etc/ssh/sshd_config"
     _exitCode=$?
     if [[ $? -eq 0 ]]; then
         e_success "Success"
@@ -519,9 +519,12 @@ function ip4_set_host_network() {
 
     e_note "Updating IPFW"
     # change the external ip for IPFW
-    sed -i '' "s|eip=.*|eip=\"${_ip4}\"|g" "${IPFW_VARS}"
+    ipfw_add_persistent_table_member 5 "${_ip4}"
+    
     _exitCode=$?
-    sed -i '' "s|eif=.*|eif=\"${_interface}\"|g" "/usr/local/etc/ipfw.vars"
+    # change the external interface for IPFW
+    # TODO: table needs flushing so that this is the only interface
+    ipfw_add_persistent_table_member 6 "${_interface}"
     _exitCode=$(( ${_exitCode} & $? ))
     if [[ $? -eq 0 ]]; then
         e_success "Success"
@@ -565,15 +568,15 @@ function ip4_set_host_gateway() {
     local _lineToAdd="defaultrouter=\"${_gateway}\""
 
     # check if the line already exists
-    local _numLines=$( cat "${RC_CONF}" | grep "^defaultrouter=" | wc -l )
+    local _numLines=$( cat "/etc/rc.conf" | grep "^defaultrouter=" | wc -l )
 
     if [[ ${_numLines} -gt 0 ]]; then
         # change rc.conf
-        sed -i '' "s|defaultrouter=.*|${_lineToAdd}|g" "${RC_CONF}"
+        sed -i '' "s|defaultrouter=.*|${_lineToAdd}|g" "/etc/rc.conf"
         _exitCode=$(( ${_exitCode} & $? ))
     else
         # add it
-        echo "${_lineToAdd}" >> "${RC_CONF}"
+        echo "${_lineToAdd}" >> "/etc/rc.conf"
         _exitCode=$(( ${_exitCode} & $? ))
     fi
 
@@ -606,16 +609,17 @@ function ip4_set_host_hostname() {
     local _lineToAdd="hostname=\"${_hostname}\""
 
     # check if the line already exists
-    local _numLines=$( cat "${RC_CONF}" | grep "^hostname=" | wc -l )
+    local _numLines=$( cat "/etc/rc.conf" | grep "^hostname=" | wc -l )
 
     if [[ ${_numLines} -gt 0 ]]; then
         # make it permanent across reboots
-        sed -i '' "s|hostname=.*|${_lineToAdd}|g" "${RC_CONF}"
+        sed -i '' "s|hostname=.*|${_lineToAdd}|g" "/etc/rc.conf"
         _exitCode=$(( ${_exitCode} & $? ))
     else
-        echo "${_lineToAdd}" >> "${RC_CONF}"
+        echo "${_lineToAdd}" >> "/etc/rc.conf"
         _exitCode=$(( ${_exitCode} & $? ))
     fi
+    
 
     if [[ ${_exitCode} -eq 0 ]]; then
         e_success "Success"
@@ -661,9 +665,10 @@ function ip4_set_container_subnet() {
     # get the netmask for use later
     local _netMask=$( cidr2netmask "${_cidr}" )
 
+    local _interface="${_CONF_COMMON[lif]}"
+    
     # get the old container ip so we can replace it
-    local _oldJIP=$( get_interface_ip4 "${_CONF_COMMON[lif]}" )
-    local _oldJNet="${_CONF_COMMON['lifNetwork']}/${_CONF_COMMON['lifCIDR']}"
+    local _oldJIP=$( get_interface_ip4 "${_interface}" )
 
     e_header "Updating container subnet"
 
@@ -674,26 +679,27 @@ function ip4_set_container_subnet() {
     local _newJIP=$( get_last_usable_ip4_in_network "${_ip4}" "${_cidr}" )
 
     # update the local container interface
-    e_note "Updating ${_CONF_COMMON[lif]}"
+    e_note "Updating interface"
     # remove the old jip
-    ifconfig ${_CONF_COMMON[lif]} delete ${_oldJIP}
+    ifconfig ${_interface} delete ${_oldJIP}
     # add the new one
-    ifconfig ${_CONF_COMMON[lif]} inet ${_newJIP} netmask ${_netMask}
+    ifconfig ${_interface} inet ${_newJIP} netmask ${_netMask}
     if [[ $? -eq 0 ]]; then
         e_success "Success"
     else
         e_error "Failed"
     fi
     e_note "Updating rc.conf"
-    if replace_line_in_file "^ifconfig_${_CONF_COMMON[lif]}=\".*\"$" "ifconfig_${_CONF_COMMON[lif]}=\"inet ${_newJIP} netmask ${_netMask}\"" "${RC_CONF}"; then
+    if replace_line_in_file "^ifconfig_${_interface}=\".*\"$" "ifconfig_${_interface}=\"inet ${_newJIP} netmask ${_netMask}\"" "/etc/rc.conf"; then
         e_success "Success"
     else
         e_error "Failed"
     fi
 
     e_note "Updating IPFW"
-    if  replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "${IPFW_VARS}" && \
-        replace_line_in_file "^clsn=\".*\"" "clsn=\"${_ip4}/${_cidr}\"" "${IPFW_VARS}"; then
+    # TODO: remove hard coded ipfw.vars, move p7ip and clsn to tables
+    if  replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars" && \
+        replace_line_in_file "^clsn=\".*\"" "clsn=\"${_ip4}/${_cidr}\"" "/usr/local/etc/ipfw.vars"; then
         e_success "Success"
     else
         e_error "Failed"
@@ -712,10 +718,10 @@ function ip4_set_container_subnet() {
     fi
 
     e_note "Updating unbound.conf"
-    sed -i '' "s|access-control: 10.0.0.0/16 allow|access-control: ${CONTAINER_SUBNET} allow|g" "/usr/local/etc/unbound/unbound.conf"
+    sed -i '' "s|access-control: 10.0.0.0/16 allow|access-control: ${_ipSubnet} allow|g" "/usr/local/etc/unbound/unbound.conf"
     
-    if  replace_line_in_file "^    interface: .*$" "    interface: ${_newJIP}" "${UNBOUND_ETC_DIR}/unbound.conf" && \
-        replace_line_in_file "^    access-control: .* allow$" "    access-control: ${_ip4}/${_cidr} allow" "${UNBOUND_ETC_DIR}/unbound.conf"; then
+    if  replace_line_in_file "^    interface: .*$" "    interface: ${_newJIP}" "/usr/local/etc/unbound/unbound.conf" && \
+        replace_line_in_file "^    access-control: .* allow$" "    access-control: ${_ip4}/${_cidr} allow" "/usr/local/etc/unbound/unbound.conf"; then
         e_success "Success"
     else
         e_error "Failed"
@@ -723,7 +729,8 @@ function ip4_set_container_subnet() {
 
     # reload unbound
     e_note "Reloading DNS server"
-    if unbound_reload; then
+    service unbound reload
+    if [[ $? -eq 0 ]]; then
         e_success "Success"
     else
         e_error "Failed"
@@ -731,11 +738,4 @@ function ip4_set_container_subnet() {
 
     e_note "Firewall requires restart. Please run \"service ipfw restart\" when you are ready. Please note this may disconnect your ssh session"
     
-     # reload ipfw
-    #e_note "Restarting Firewall"
-    #if ipfw_restart; then
-        #e_success "Success"
-    #else
-        #e_error "Failed"
-    #fi
 }
