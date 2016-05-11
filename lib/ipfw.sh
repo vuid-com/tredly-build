@@ -88,12 +88,12 @@ function ipfw_add_persistent_table_member() {
     for _ip4 in ${_ip}; do
         # update the table file
         echo "ipfw -q table ${_tableNumber} add ${_ip4}" >> /usr/local/etc/ipfw.table.${_tableNumber}
-        _exitCode=$(( ${_exitCode} && $? ))
+        _exitCode=$(( ${_exitCode} & $? ))
     done
     
     # run the script
     sh /usr/local/etc/ipfw.table.${_tableNumber}
-    _exitCode=$(( ${_exitCode} && $? ))
+    _exitCode=$(( ${_exitCode} & $? ))
 
     return ${_exitCode}
 }
