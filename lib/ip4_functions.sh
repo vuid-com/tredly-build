@@ -705,17 +705,17 @@ function ip4_set_container_subnet() {
     e_note "Updating interface"
     # remove the old jip
     ifconfig ${_interface} delete ${_oldJIP}
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     # add the new one
     ifconfig ${_interface} inet ${_newJIP} netmask ${_netMask}
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     # add this data to the persistent table
     ipfw_add_persistent_table_member "" "10" "${_ipSubnet}"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     ipfw_add_persistent_table_member "" "11" "${_interface}"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     ipfw_add_persistent_table_member "" "7" "${_newJIP}"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     
     if [[ ${_exitCode} -eq 0 ]]; then
         e_success "Success"
@@ -734,16 +734,16 @@ function ip4_set_container_subnet() {
     local _exitCode=0
     # TODO: remove hard coded ipfw.vars, move p7ip and clsn to tables
     ipfw_add_persistent_table_member "" 7 "${_newJIP}"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     
     ipfw_add_persistent_table_member "" 10 "${_ip4}/${_cidr}"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     
     ipfw_add_persistent_table_member "" 11 "${_interface}"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     
     replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars"
-    _exitCode=$(( ${_exitCode} & $? ))
+    _exitCode=$(( _exitCode & $? ))
     
     if [[ ${_exitCode} -eq 0 ]]; then
     #if  replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars" && \
