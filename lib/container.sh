@@ -450,7 +450,7 @@ function container_modify() {
                     # add it to the table
                     ipfw_add_table_member "${_uuid}" "${CONTAINER_IPFW_WL_TABLE_CONTAINER}" "${_ip4Whitelist}/${_cidrWhitelist}"
 
-                    _exitCode=$(( ${_exitCode} && $? ))
+                    _exitCode=$(( ${_exitCode} & $? ))
                 else
                     _exitCode=${E_ERROR}
                 fi
@@ -458,7 +458,7 @@ function container_modify() {
 
             if [[ ${_exitCode} -eq 0 ]]; then
                 e_success "Success"
-                _exitCode=$(( ${_exitCode} && $? ))
+                _exitCode=$(( ${_exitCode} & $? ))
             else
                 e_error "Failed"
                 _functionExitCode=${E_ERROR}
@@ -471,13 +471,13 @@ function container_modify() {
             # remove the old access file
             if [[ -f "${_accessFilePath}" ]]; then
                 nginx_clear_access_file "${_accessFilePath}"
-                _exitCode=$(( ${_exitCode} && $? ))
+                _exitCode=$(( ${_exitCode} & $? ))
             fi
 
             # recreate the file
             nginx_create_access_file "${_accessFilePath}" _whitelistArray[@]
 
-            _exitCode=$(( ${_exitCode} && $? ))
+            _exitCode=$(( ${_exitCode} & $? ))
 
             if [[ $? -eq 0 ]]; then
                 e_success "Success"

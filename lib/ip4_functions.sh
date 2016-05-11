@@ -461,8 +461,7 @@ function ip4_set_host_network() {
     if ! is_valid_cidr "${_ip4CIDR}"; then
         exit_with_error "${_ip4CIDR} is not a valid CIDR"
     fi
-
-
+    
     # make sure the interface exists
     if ! network_interface_exists "${_interface}"; then
         exit_with_error "Interface ${_interface} does not exist"
@@ -478,14 +477,26 @@ function ip4_set_host_network() {
     e_header "Setting Tredly host IP address to ${2} on interface ${_interface}"
 
     # set the ip address
+    local _exitCode=0
     e_note "Changing IP Address on interface ${_interface}"
+    
     ifconfig ${_interface} inet ${_ip4} netmask ${_ip4Subnet}
-    if [[ $? -eq 0 ]]; then
+    _exitCode=$(( ${_exitCode} & $? ))
+
+    # set the ip in the table
+    ipfw_add_persistent_table_member "" "5" "${_ip4}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    # and the interface
+    ipfw_add_persistent_table_member "" "6" "${_interface}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    if [[ ${_exitCode} -eq 0 ]]; then
         e_success "Success"
     else
         e_error "Failed"
     fi
-
+    
     # check if a line for this interface exists within rc.conf
     local _numLines=$( cat "/etc/rc.conf" | grep "^ifconfig_${_interface}=" | wc -l )
 
@@ -518,14 +529,23 @@ function ip4_set_host_network() {
     fi
 
     e_note "Updating IPFW"
+    local _exitCode=0
     # change the external ip for IPFW
-    ipfw_add_persistent_table_member 5 "${_ip4}"
-    
-    _exitCode=$?
-    # change the external interface for IPFW
-    # TODO: table needs flushing so that this is the only interface
-    ipfw_add_persistent_table_member 6 "${_interface}"
+    ipfw_add_persistent_table_member "" 5 "${_ip4}"
     _exitCode=$(( ${_exitCode} & $? ))
+    
+    # update ipfw.vars
+    replace_line_in_file "^eip=\".*\"" "eip=\"${_ip4}\"" "/usr/local/etc/ipfw.vars"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    # change the external interface for IPFW
+    ipfw_add_persistent_table_member "" 6 "${_interface}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    # update ipfw.vars
+    replace_line_in_file "^eif=\".*\"" "eif=\"${_interface}\"" "/usr/local/etc/ipfw.vars"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
     if [[ $? -eq 0 ]]; then
         e_success "Success"
     else
@@ -669,6 +689,7 @@ function ip4_set_container_subnet() {
     
     # get the old container ip so we can replace it
     local _oldJIP=$( get_interface_ip4 "${_interface}" )
+    
 
     e_header "Updating container subnet"
 
@@ -678,17 +699,30 @@ function ip4_set_container_subnet() {
     # get the new ip address for the container interface
     local _newJIP=$( get_last_usable_ip4_in_network "${_ip4}" "${_cidr}" )
 
+    local _exitcode=0
+
     # update the local container interface
     e_note "Updating interface"
     # remove the old jip
     ifconfig ${_interface} delete ${_oldJIP}
+    _exitCode=$(( ${_exitCode} & $? ))
     # add the new one
     ifconfig ${_interface} inet ${_newJIP} netmask ${_netMask}
-    if [[ $? -eq 0 ]]; then
+    _exitCode=$(( ${_exitCode} & $? ))
+    # add this data to the persistent table
+    ipfw_add_persistent_table_member "" "10" "${_ipSubnet}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    ipfw_add_persistent_table_member "" "11" "${_interface}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    ipfw_add_persistent_table_member "" "7" "${_newJIP}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    if [[ ${_exitCode} -eq 0 ]]; then
         e_success "Success"
     else
         e_error "Failed"
     fi
+    
     e_note "Updating rc.conf"
     if replace_line_in_file "^ifconfig_${_interface}=\".*\"$" "ifconfig_${_interface}=\"inet ${_newJIP} netmask ${_netMask}\"" "/etc/rc.conf"; then
         e_success "Success"
@@ -697,9 +731,23 @@ function ip4_set_container_subnet() {
     fi
 
     e_note "Updating IPFW"
+    local _exitCode=0
     # TODO: remove hard coded ipfw.vars, move p7ip and clsn to tables
-    if  replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars" && \
-        replace_line_in_file "^clsn=\".*\"" "clsn=\"${_ip4}/${_cidr}\"" "/usr/local/etc/ipfw.vars"; then
+    ipfw_add_persistent_table_member "" 7 "${_newJIP}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    ipfw_add_persistent_table_member "" 10 "${_ip4}/${_cidr}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    ipfw_add_persistent_table_member "" 11 "${_interface}"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars"
+    _exitCode=$(( ${_exitCode} & $? ))
+    
+    if [[ ${_exitCode} -eq 0 ]]; then
+    #if  replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars" && \
+        #replace_line_in_file "^clsn=\".*\"" "clsn=\"${_ip4}/${_cidr}\"" "/usr/local/etc/ipfw.vars"; then
         e_success "Success"
     else
         e_error "Failed"

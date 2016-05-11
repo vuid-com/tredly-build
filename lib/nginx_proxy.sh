@@ -481,14 +481,14 @@ function nginx_copy_cert() {
 
         # change ownership of ssl cert and key
         chown -R www "${_certDestDir}"
-        _exitCode=$(( ${_exitCode} && $? ))
+        _exitCode=$(( ${_exitCode} & $? ))
 
         chgrp -R www "${_certDestDir}"
-        _exitCode=$(( ${_exitCode} && $? ))
+        _exitCode=$(( ${_exitCode} & $? ))
 
         # only allow www to read the private key
         chmod 600 "${_certDestDir}/server.key"
-        _exitCode=$(( ${_exitCode} && $? ))
+        _exitCode=$(( ${_exitCode} & $? ))
 
         return ${_exitCode}
     fi
