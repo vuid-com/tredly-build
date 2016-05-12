@@ -91,9 +91,12 @@ function ipfw_add_persistent_table_member() {
         _exitCode=$(( ${_exitCode} & $? ))
     done
     
-    # run the script
-    sh /usr/local/etc/ipfw.table.${_tableNumber}
-    _exitCode=$(( ${_exitCode} & $? ))
+    # check if ipfw module is loaded
+    if [[ $( kldstat | grep 'ipfw.ko$' | wc -l ) -ne 0 ]]; then
+        # run the script
+        sh /usr/local/etc/ipfw.table.${_tableNumber}
+        _exitCode=$(( ${_exitCode} & $? ))
+    fi
 
     return ${_exitCode}
 }
