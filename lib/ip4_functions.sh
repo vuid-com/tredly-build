@@ -687,8 +687,11 @@ function ip4_set_container_subnet() {
 
     local _interface="${_CONF_COMMON[lif]}"
     
+    local _oldJIP=''
     # get the old container ip so we can replace it
-    local _oldJIP=$( get_interface_ip4 "${_interface}" )
+    if network_interface_exists "${_interface}"; then
+        _oldJIP=$( get_interface_ip4 "${_interface}" )
+    fi
     
 
     e_header "Updating container subnet"
@@ -701,26 +704,31 @@ function ip4_set_container_subnet() {
 
     local _exitcode=0
 
-    # update the local container interface
-    e_note "Updating interface"
-    # remove the old jip
-    ifconfig ${_interface} delete ${_oldJIP}
-    _exitCode=$(( _exitCode & $? ))
-    # add the new one
-    ifconfig ${_interface} inet ${_newJIP} netmask ${_netMask}
-    _exitCode=$(( _exitCode & $? ))
-    # add this data to the persistent table
-    ipfw_add_persistent_table_member "" "10" "${_ipSubnet}"
-    _exitCode=$(( _exitCode & $? ))
-    ipfw_add_persistent_table_member "" "11" "${_interface}"
-    _exitCode=$(( _exitCode & $? ))
-    ipfw_add_persistent_table_member "" "7" "${_newJIP}"
-    _exitCode=$(( _exitCode & $? ))
-    
-    if [[ ${_exitCode} -eq 0 ]]; then
-        e_success "Success"
+    # check if the local container interface exists
+    if ! network_interface_exists "${_interface}"; then
+        e_warning "${_interface} does not exist. This may be because VIMAGE is not enabled in the kernel"
     else
-        e_error "Failed"
+        # update the local container interface
+        e_note "Updating interface ${_interface}"
+        # remove the old jip
+        ifconfig ${_interface} delete ${_oldJIP}
+        _exitCode=$(( _exitCode & $? ))
+        # add the new one
+        ifconfig ${_interface} inet ${_newJIP} netmask ${_netMask}
+        _exitCode=$(( _exitCode & $? ))
+        # add this data to the persistent table
+        ipfw_add_persistent_table_member "" "10" "${_ipSubnet}"
+        _exitCode=$(( _exitCode & $? ))
+        ipfw_add_persistent_table_member "" "11" "${_interface}"
+        _exitCode=$(( _exitCode & $? ))
+        ipfw_add_persistent_table_member "" "7" "${_newJIP}"
+        _exitCode=$(( _exitCode & $? ))
+        
+        if [[ ${_exitCode} -eq 0 ]]; then
+            e_success "Success"
+        else
+            e_error "Failed"
+        fi
     fi
     
     e_note "Updating rc.conf"
@@ -742,8 +750,8 @@ function ip4_set_container_subnet() {
     ipfw_add_persistent_table_member "" 11 "${_interface}"
     _exitCode=$(( _exitCode & $? ))
     
-    replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars"
-    _exitCode=$(( _exitCode & $? ))
+    #replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars"
+    #_exitCode=$(( _exitCode & $? ))
     
     if [[ ${_exitCode} -eq 0 ]]; then
     #if  replace_line_in_file "^p7ip=\".*\"" "p7ip=\"${_newJIP}\"" "/usr/local/etc/ipfw.vars" && \
@@ -775,13 +783,18 @@ function ip4_set_container_subnet() {
         e_error "Failed"
     fi
 
-    # reload unbound
-    e_note "Reloading DNS server"
-    service unbound reload
+    # check if unbound is running
+    service unbound status > /dev/null 2>&1
+    
     if [[ $? -eq 0 ]]; then
-        e_success "Success"
-    else
-        e_error "Failed"
+        # unbound running so reload it
+        e_note "Reloading DNS server"
+        service unbound reload
+        if [[ $? -eq 0 ]]; then
+            e_success "Success"
+        else
+            e_error "Failed"
+        fi
     fi
 
     e_note "Firewall requires restart. Please run \"service ipfw restart\" when you are ready. Please note this may disconnect your ssh session"
